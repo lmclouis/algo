@@ -10,9 +10,20 @@ import warnings
 warnings.filterwarnings('ignore')
 import seaborn as sns
 import matplotlib.pyplot as plt
-import os
 import pandas_ta as ta
+import os
+import logging
 
+
+DIR_t = r'/Users/louisleung'
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter(
+    '%(asctime)s;%(levelname)s;%(name)s;%(message)s')
+file_handler = logging.FileHandler(os.path.join(DIR_t, "backtest_log.log"))
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 ### 
 model_params=[
@@ -380,57 +391,62 @@ exchange = 'bybit'
 
 for resolution in resolutions:
     df_end_pt = get_df_endpoints(asset_input, resolution)
-    for index, row in df_end_pt[0:10].iterrows():
-        df_factor_value = get_df_value(row['path'], since, until, asset_input, resolution)
-        ### get df price
-        df_price = get_price_data(since, exchange, resolution, asset_output)
-        df_merge = pd.merge(df_price, df_factor_value, 'inner', on = 't')
-        df_merge.columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'factor']
-        df_merge['timestamp'] = df_merge['timestamp'].astype(int).apply(lambda x: datetime.fromtimestamp(x, timezone.utc))      
-        df_merge['chg'] = df_merge['close'].pct_change()
-        # t = 1
-        for model in models:
-            for l_or_s in long_or_short:
-                for item in model_params:
-                    if item['model_name'] == model:
-                        for params in item['model_params']:
-                            if params['resolution'] == '24h':
-                                l_window = params['l_window']
-                                l_threshold = params['l_threshold']
-                                # print(t)
-                                
-                                for direction in directions:
-                                    # print(directions)
-                                    # print(t,direction)
-                                    results = []
-                                    
-                                    for threshold in l_threshold:
-                                        for window in l_window:
-                                            result = backtesting(df_merge, model, window, threshold, l_or_s, direction)
-                                            results.append(result)
-                                            
-                                    results = pd.DataFrame(results)
-                                    results['threshold'] = results['threshold'].round(2)
-                                    results['direction'] = direction
-                                    results['long_or_short'] = l_or_s
-                                    results['resolution'] = resolution
-                                    results['model'] = model
-                                    results['endpoint'] = row['path']
-                                    
-                                    csv_filename = f'results_{resolution}.csv'
-                                    print(f'{index} | {row["path"]} | asset_input: {asset_input} | asset_output: {asset_ouput}| {model} | {l_or_s} | {params["resolution"]} | {direction}')
-                                    if os.path.exists(csv_filename):
-                                        o_data = pd.read_csv(csv_filename)
-                                        o_data = pd.concat([o_data, results])
-                                        o_data.to_csv(csv_filename, index=False)
-                                        
-                                        # print('finish')
-                                        
-                                        del o_data
-                                        del results 
-                                    
-                                    else:
-                                        results.to_csv(csv_filename)
-                                        del results 
+    for index, row in df_end_pt[27:29].iterrows():
+        
+        try:
+            df_factor_value = get_df_value(row['path'], since, until, asset_input, resolution)
+            ### get df price
+            df_price = get_price_data(since, exchange, resolution, asset_output)
+            df_merge = pd.merge(df_price, df_factor_value, 'inner', on = 't')
+            df_merge.columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'factor']
+            df_merge['timestamp'] = df_merge['timestamp'].astype(int).apply(lambda x: datetime.fromtimestamp(x, timezone.utc))      
+            df_merge['chg'] = df_merge['close'].pct_change()
+            # t = 1
+            for model in models:
+                for l_or_s in long_or_short:
+                    for item in model_params:
+                        if item['model_name'] == model:
+                            for params in item['model_params']:
+                                if params['resolution'] == '24h':
+                                    l_window = params['l_window']
+                                    l_threshold = params['l_threshold']
+                                    # print(t)
 
-                                    # t+=1
+                                    for direction in directions:
+                                        # print(directions)
+                                        # print(t,direction)
+                                        results = []
+
+                                        for threshold in l_threshold:
+                                            for window in l_window:
+                                                result = backtesting(df_merge, model, window, threshold, l_or_s, direction)
+                                                results.append(result)
+
+                                        results = pd.DataFrame(results)
+                                        results['threshold'] = results['threshold'].round(2)
+                                        results['direction'] = direction
+                                        results['long_or_short'] = l_or_s
+                                        results['resolution'] = resolution
+                                        results['model'] = model
+                                        results['endpoint'] = row['path']
+
+                                        csv_filename = f'results_{resolution}.csv'
+                                        print(f'{index} | {row["path"]} | asset_input: {asset_input} | asset_output: {asset_ouput}| {model} | {l_or_s} | {params["resolution"]} | {direction}')
+                                        if os.path.exists(csv_filename):
+                                            o_data = pd.read_csv(csv_filename)
+                                            o_data = pd.concat([o_data, results])
+                                            o_data.to_csv(csv_filename, index=False)
+
+                                            # print('finish')
+
+                                            del o_data
+                                            del results 
+
+                                        else:
+                                            results.to_csv(csv_filename)
+                                            del results 
+        except Exception as e:
+            logger.error(f' Error occurred: %s {index} | {row["path"]} | asset_input: {asset_input} | asset_output: {asset_ouput}|', e)
+        
+        
+                            
